@@ -22,6 +22,6 @@ setlocale(LC_CTYPE, $orig);
 ===DONE===
 --EXPECTF--
 *** Testing dpl_ctype_alnum() : basic functionality ***
- bool(true)
+bool(true)
 bool(false)
 ===DONE===
