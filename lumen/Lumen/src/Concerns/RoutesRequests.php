@@ -3,6 +3,7 @@
 namespace Lumen\Concerns;
 
 use Closure;
+use FastRoute\Dispatcher;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
 trait RoutesRequests
@@ -84,6 +85,10 @@ trait RoutesRequests
         if (isset($this->routes[$method.$pathInfo])) {
             return $this->handleFoundRoute([true, $this->routes[$method.$pathInfo]['action'], []]);
         }
+
+        return $this->handleDispatcherResponse(
+            $this->createDispatcher()->dispatch($method, $pathInfo)
+        );
     }
 
     /**
@@ -95,6 +100,38 @@ trait RoutesRequests
     protected function parseIncomingRequest($request)
     {
         return [$request->getMethod(), $request->getPathInfo()];
+    }
+
+    /**
+     * Create a FastRoute dispatcher instance for the application.
+     *
+     * @return Dispatcher
+     */
+    protected function createDispatcher()
+    {
+        return $this->dispatcher ?: \FastRoute\simpleDispatcher(function ($r) {
+            foreach ($this->routes as $route) {
+                $r->addRoute($route['method'], $route['uri'], $route['action']);
+            }
+        });
+    }
+
+    /**
+     * Handle the response from the FastRoute dispatcher.
+     *
+     * @param  array  $routeInfo
+     * @return mixed
+     */
+    protected function handleDispatcherResponse($routeInfo)
+    {
+        switch ($routeInfo[0]) {
+            case Dispatcher::NOT_FOUND:
+                throw new NotFoundHttpException;
+            case Dispatcher::METHOD_NOT_ALLOWED:
+                throw new MethodNotAllowedHttpException($routeInfo[1]);
+            case Dispatcher::FOUND:
+                return $this->handleFoundRoute($routeInfo);
+        }
     }
 
     /**

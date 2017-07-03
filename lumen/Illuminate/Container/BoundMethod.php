@@ -15,6 +15,6 @@ class BoundMethod
      */
     public static function call($container, $callback, array $parameters = [], $defaultMethod = null)
     {
-        return call_user_func_array($callback, []);
+        return call_user_func_array($callback, $parameters);
     }
 }
