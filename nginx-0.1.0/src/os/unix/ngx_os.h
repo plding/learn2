@@ -12,6 +12,10 @@
 #include <ngx_core.h>
 
 
+ngx_int_t ngx_os_init(ngx_log_t *log);
+ngx_int_t ngx_posix_init(ngx_log_t *log);
+
+
 #ifdef __linux__
 #include <ngx_linux.h>
 #endif

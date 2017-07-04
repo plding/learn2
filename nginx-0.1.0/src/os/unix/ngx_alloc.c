@@ -8,6 +8,9 @@
 #include <ngx_core.h>
 
 
+int ngx_pagesize;
+
+
 void *ngx_alloc(size_t size, ngx_log_t *log)
 {
     void  *p;

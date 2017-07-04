@@ -46,7 +46,7 @@ void ngx_log_error_core(ngx_uint_t level, ngx_log_t *log, ngx_err_t err,
 
     max = MAX_ERROR_STR - 1;
 
-    len = ngx_snprintf(errstr + len, max - len, "[%s] ", err_levels[level]);
+    len = ngx_snprintf(errstr, max, "[%s] ", err_levels[level]);
 
 #if (HAVE_VARIADIC_MACROS)
 
