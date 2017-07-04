@@ -1,0 +1,22 @@
+
+# Copyright (C) Igor Sysoev
+
+
+CORE_MODULES=
+
+CORE_INCS="src/core"
+
+CORE_DEPS="src/core/nginx.h \
+           src/core/ngx_config.h \
+           src/core/ngx_core.h \
+           src/core/ngx_conf_file.h"
+
+CORE_SRCS="src/core/nginx.c"
+
+
+UNIX_INCS="$CORE_INCS src/os/unix"
+
+UNIX_DEPS="$CORE_DEPS \
+           src/os/unix/ngx_os.h"
+
+UNIX_SRCS="$CORE_SRCS"
