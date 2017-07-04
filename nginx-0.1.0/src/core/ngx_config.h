@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) Dingpeilong
+ * Copyright (C) Igor Sysoev
  */
 
 
@@ -8,9 +8,56 @@
 #define _NGX_CONFIG_H_INCLUDED_
 
 
-#if defined __linux__
-#include <ngx_linux_config.h>
+#if defined __DragonFly__ && !defined __FreeBSD__
+#define __FreeBSD__        4
+#define __FreeBSD_version  480101
 #endif
+
+
+#if defined __FreeBSD__
+#include <ngx_freebsd_config.h>
+
+
+#elif defined __linux__
+#include <ngx_linux_config.h>
+
+
+       /* Solaris */
+#elif defined sun && (defined __svr4__ || defined __SVR4)
+#include <ngx_solaris_config.h>
+
+
+#elif defined _WIN32
+#include <ngx_win32_config.h>
+
+
+#else /* posix */
+#include <ngx_posix_config.h>
+
+#endif
+
+
+#if !(WIN32)
+
+#define ngx_signal_helper(n)     SIG##n
+#define ngx_signal_value(n)      ngx_signal_helper(n)
+
+/* TODO: #ifndef */
+#define NGX_SHUTDOWN_SIGNAL      QUIT
+#define NGX_TERMINATE_SIGNAL     TERM
+#define NGX_NOACCEPT_SIGNAL      WINCH
+#define NGX_RECONFIGURE_SIGNAL   HUP
+
+#if (NGX_LINUXTHREADS)
+#define NGX_REOPEN_SIGNAL        INFO
+#define NGX_CHANGEBIN_SIGNAL     XCPU
+#else
+#define NGX_REOPEN_SIGNAL        USR1
+#define NGX_CHANGEBIN_SIGNAL     USR2
+#endif
+
+#endif
+
 
 
 /* TODO: platform specific: array[NGX_INVALID_ARRAY_INDEX] must cause SIGSEGV */
@@ -58,6 +105,27 @@ typedef long               ngx_flag_t;
 #endif
 
 #define ngx_align(p)    (char *) ((NGX_ALIGN_CAST p + NGX_ALIGN) & ~NGX_ALIGN)
+
+
+/* TODO: auto_conf: ngx_inline   inline __inline __inline__ */
+#ifndef ngx_inline
+#define ngx_inline   inline
+#endif
+
+#define NGX_ACCEPT_THRESHOLD   100
+
+#ifndef INADDR_NONE  /* Solaris */
+#define INADDR_NONE  ((unsigned int) -1)
+#endif
+
+#ifndef INET_ADDRSTRLEN  /* Win32 */
+#define INET_ADDRSTRLEN  16
+#endif
+
+#define NGX_MAXHOSTNAMELEN 64
+/*
+#define NGX_MAXHOSTNAMELEN MAXHOSTNAMELEN
+*/
 
 
 #endif /* _NGX_CONFIG_H_INCLUDED_ */

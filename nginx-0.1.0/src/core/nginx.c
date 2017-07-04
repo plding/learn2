@@ -13,7 +13,8 @@ int main(int argc, char *const *argv)
 {
     ngx_log_t *log;
     ngx_pool_t *pool;
-    u_char *p, *q, *s;
+    ngx_array_t *a;
+    ngx_uint_t *e, i;
 
     log = ngx_log_init_stderr();
     
@@ -21,9 +22,16 @@ int main(int argc, char *const *argv)
 
     pool = ngx_create_pool(1024, log);
 
-    p = ngx_palloc(pool, 10);
-    q = ngx_palloc(pool, 2048);
-    s = ngx_palloc(pool, 2048);
+    a = ngx_array_create(pool, 10, sizeof(ngx_uint_t));
+
+    for (i = 0; i < a->nalloc; ++i) {
+        e = ngx_array_push(a);
+        *e = i * 2;
+    }
+
+    for (i = 0; i < a->nelts; ++i) {
+        printf("%lu\n", (unsigned long) *((ngx_uint_t *) a->elts + i));
+    }
 
     ngx_destroy_pool(pool);
 

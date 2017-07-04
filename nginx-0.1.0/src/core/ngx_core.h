@@ -11,6 +11,7 @@
 typedef struct ngx_module_s      ngx_module_t;
 typedef struct ngx_pool_s        ngx_pool_t;
 typedef struct ngx_log_s         ngx_log_t;
+typedef struct ngx_array_s       ngx_array_t;
 typedef struct ngx_open_file_s   ngx_open_file_t;
 
 
@@ -29,6 +30,7 @@ typedef struct ngx_open_file_s   ngx_open_file_t;
 #include <ngx_log.h>
 #include <ngx_alloc.h>
 #include <ngx_palloc.h>
+#include <ngx_array.h>
 #include <ngx_files.h>
 #include <ngx_conf_file.h>
 #include <ngx_os.h>
