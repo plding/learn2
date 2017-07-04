@@ -88,7 +88,7 @@ case $CC in
          BINOUT="-o "
          OBJEXT="o"
 
-         CC_STRONG="$CC -Wall -Werror"
+         CC_STRONG="$CC -Wall"
     ;;
 
 
@@ -161,7 +161,7 @@ case $CC in
          BINOUT="-o "
          OBJEXT="o"
 
-         CC_STRONG="$CC -w1 -Werror"
+         CC_STRONG="$CC -w1"
     ;;
 
 

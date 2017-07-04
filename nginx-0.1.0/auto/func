@@ -40,4 +40,4 @@ else
     echo "---------" >> $NGX_ERR
 fi
 
-rm $NGX_AUTOTEST*
+# rm $NGX_AUTOTEST*

@@ -9,14 +9,22 @@ CORE_INCS="src/core"
 CORE_DEPS="src/core/nginx.h \
            src/core/ngx_config.h \
            src/core/ngx_core.h \
-           src/core/ngx_conf_file.h"
+           src/core/ngx_conf_file.h \
+           src/core/ngx_log.h \
+           src/core/ngx_string.h"
 
-CORE_SRCS="src/core/nginx.c"
+CORE_SRCS="src/core/nginx.c \
+           src/core/ngx_log.c"
 
 
 UNIX_INCS="$CORE_INCS src/os/unix"
 
 UNIX_DEPS="$CORE_DEPS \
-           src/os/unix/ngx_os.h"
+           src/os/unix/ngx_os.h \
+           src/os/unix/ngx_alloc.h \
+           src/os/unix/ngx_files.h \
+           src/os/unix/ngx_errno.h \
+           src/os/unix/ngx_types.h"
 
-UNIX_SRCS="$CORE_SRCS"
+UNIX_SRCS="$CORE_SRCS \
+           src/os/unix/ngx_alloc.c"
