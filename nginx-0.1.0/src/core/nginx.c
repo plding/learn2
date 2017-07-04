@@ -13,8 +13,9 @@ int main(int argc, char *const *argv)
 {
     ngx_log_t *log;
     ngx_pool_t *pool;
-    ngx_array_t *a;
-    ngx_uint_t *e, i;
+    ngx_list_t list;
+    ngx_list_part_t *part;
+    ngx_uint_t *data, *e, i;
 
     log = ngx_log_init_stderr();
     
@@ -22,15 +23,29 @@ int main(int argc, char *const *argv)
 
     pool = ngx_create_pool(1024, log);
 
-    a = ngx_array_create(pool, 10, sizeof(ngx_uint_t));
+    ngx_list_init(&list, pool, 3, sizeof(ngx_uint_t));
 
-    for (i = 0; i < a->nalloc; ++i) {
-        e = ngx_array_push(a);
+    for (i = 0; i < 10; ++i) {
+        e = ngx_list_push(&list);
         *e = i * 2;
     }
 
-    for (i = 0; i < a->nelts; ++i) {
-        printf("%lu\n", (unsigned long) *((ngx_uint_t *) a->elts + i));
+    part = &list.part;
+    data = part->elts;
+
+    for (i = 0; /* void */; i++) {
+        
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+
+            part = part->next;
+            data = part->elts;
+            i = 0;
+        }
+
+        printf("%lu\n", (unsigned long) data[i]);
     }
 
     ngx_destroy_pool(pool);

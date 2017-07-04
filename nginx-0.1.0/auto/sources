@@ -12,13 +12,15 @@ CORE_DEPS="src/core/nginx.h \
            src/core/ngx_log.h \
            src/core/ngx_palloc.h \
            src/core/ngx_array.h \
+           src/core/ngx_list.h \
            src/core/ngx_string.h \
            src/core/ngx_conf_file.h"
 
 CORE_SRCS="src/core/nginx.c \
            src/core/ngx_log.c \
            src/core/ngx_palloc.c \
-           src/core/ngx_array.c"
+           src/core/ngx_array.c \
+           src/core/ngx_list.c"
 
 
 UNIX_INCS="$CORE_INCS src/os/unix"
