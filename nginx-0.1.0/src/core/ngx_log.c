@@ -122,3 +122,19 @@ ngx_log_t *ngx_log_init_stderr()
 
     return &ngx_log;
 }
+
+
+ngx_log_t *ngx_log_create_errlog(ngx_cycle_t *cycle, ngx_array_t *args)
+{
+    ngx_log_t  *log;
+
+    if (!(log = ngx_pcalloc(cycle->pool, sizeof(ngx_log_t)))) {
+        return NULL;
+    }
+
+    if (!(log->file = ngx_conf_open_file(cycle, NULL))) {
+        return NULL;
+    }
+
+    return log;
+}

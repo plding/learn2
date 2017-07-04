@@ -9,46 +9,36 @@
 #include <nginx.h>
 
 
+volatile ngx_cycle_t  *ngx_cycle;
+
+
 int main(int argc, char *const *argv)
 {
-    ngx_log_t *log;
-    ngx_pool_t *pool;
-    ngx_list_t list;
-    ngx_list_part_t *part;
-    ngx_uint_t *data, *e, i;
+    ngx_log_t         *log;
+    ngx_cycle_t       *cycle, init_cycle;
 
-    log = ngx_log_init_stderr();
-    
-    ngx_os_init(log);
-
-    pool = ngx_create_pool(1024, log);
-
-    ngx_list_init(&list, pool, 3, sizeof(ngx_uint_t));
-
-    for (i = 0; i < 10; ++i) {
-        e = ngx_list_push(&list);
-        *e = i * 2;
+    if (!(log = ngx_log_init_stderr())) {
+        return 1;
     }
 
-    part = &list.part;
-    data = part->elts;
+    ngx_memzero(&init_cycle, sizeof(ngx_cycle_t));
+    init_cycle.log = log;
+    ngx_cycle = &init_cycle;
 
-    for (i = 0; /* void */; i++) {
-        
-        if (i >= part->nelts) {
-            if (part->next == NULL) {
-                break;
-            }
-
-            part = part->next;
-            data = part->elts;
-            i = 0;
-        }
-
-        printf("%lu\n", (unsigned long) data[i]);
+    if (!(init_cycle.pool = ngx_create_pool(1024, log))) {
+        return 1;
     }
 
-    ngx_destroy_pool(pool);
+    log->log_level = NGX_LOG_DEBUG_ALL;
+
+    if (ngx_os_init(log) == NGX_ERROR) {
+        return 1;
+    }
+
+    cycle = ngx_init_cycle(&init_cycle);
+    if (cycle == NULL) {
+        return 1;
+    }
 
     return 0;
 }

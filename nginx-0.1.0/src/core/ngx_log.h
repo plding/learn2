@@ -194,6 +194,7 @@ void ngx_assert_core(ngx_log_t *log, const char *fmt, ...);
 
 
 ngx_log_t *ngx_log_init_stderr();
+ngx_log_t *ngx_log_create_errlog(ngx_cycle_t *cycle, ngx_array_t *args);
 
 
 #endif /* _NGX_LOG_H_INCLUDED_ */

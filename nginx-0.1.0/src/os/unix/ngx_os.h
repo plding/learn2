@@ -16,6 +16,8 @@ ngx_int_t ngx_os_init(ngx_log_t *log);
 ngx_int_t ngx_posix_init(ngx_log_t *log);
 
 
+#define ngx_stderr_fileno  STDERR_FILENO
+
 #ifdef __linux__
 #include <ngx_linux.h>
 #endif
