@@ -95,6 +95,15 @@
 #define REDIS_MAX_WRITE_PER_EVENT (1024*64)
 #define REDIS_REQUEST_MAX_SIZE (1024*1024*256) /* max bytes in inline command */
 
+/* Command flags */
+#define REDIS_CMD_BULK          1       /* Bulk write command */
+#define REDIS_CMD_INLINE        2       /* Inline command */
+/* REDIS_CMD_DENYOOM reserves a longer comment: all the commands marked with
+   this flags will return an error when the 'maxmemory' option is set in the
+   config file and the server is using more than maxmemory bytes of memory.
+   In short this commands are denied on low memory conditions. */
+#define REDIS_CMD_DENYOOM       4
+
 /* Log levels */
 #define REDIS_DEBUG 0
 #define REDIS_VERBOSE 1
@@ -115,8 +124,10 @@ static void _redisAssert(char *estr, char *file, int line);
 typedef struct redisClient {
     int fd;
     sds querybuf;
+    sds *argv;
     int argc;
     int bulklen;            /* bulk read len. -1 if not in bulk read mode */
+    list *reply;
     int sentlen;
     time_t lastinteraction; /* time of the last interaction, used for timeout */
     int flags;              /* REDIS_SLAVE | REDIS_MONITOR | REDIS_MULTI ... */
@@ -144,15 +155,31 @@ struct redisServer {
     time_t unixtime;    /* Unix time sampled every second. */
 };
 
+typedef void redisCommandProc(redisClient *c);
+struct redisCommand {
+    char *name;
+    redisCommandProc *proc;
+    int arity;
+    int flags;
+};
+
 /*================================ Prototypes =============================== */
 
 static void freeClient(redisClient *c);
+static void addReplySds(redisClient *c, sds s);
 static void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask);
+static void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask);
+
+static void pingCommand(redisClient *c);
 
 /*================================= Globals ================================= */
 
 /* Global vars */
 static struct redisServer server; /* server global state */
+static struct redisCommand cmdTable[] = {
+    {"ping", pingCommand, 1, REDIS_CMD_INLINE},
+    {NULL, NULL, 0, 0}
+};
 
 /*============================ Utility functions ============================ */
 
@@ -252,6 +279,11 @@ static void initServer() {
 }
 
 static void freeClientArgv(redisClient *c) {
+    int j;
+
+    for (j = 0; j < c->argc; j++)
+        sdsfree(c->argv[j]);
+
     c->argc = 0;
 }
 
@@ -268,14 +300,175 @@ static void freeClient(redisClient *c) {
 
     aeDeleteFileEvent(server.el, c->fd, AE_READABLE);
     aeDeleteFileEvent(server.el, c->fd, AE_WRITABLE);
+    listRelease(c->reply);
     freeClientArgv(c);
     close(c->fd);
     /* Remove from the list of clients */
     ln = listSearchKey(server.clients, c);
     redisAssert(ln != NULL);
     listDelNode(server.clients, ln);
-    // zfree(c->argv);
+    zfree(c->argv);
     zfree(c);
+}
+
+static void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
+    redisClient *c = privdata;
+    int nwritten = 0, totwritten = 0, objlen;
+    sds o;
+    REDIS_NOTUSED(el);
+    REDIS_NOTUSED(mask);
+
+    while (listLength(c->reply)) {
+        o = listNodeValue(listFirst(c->reply));
+        objlen = sdslen(o);
+
+        if (objlen == 0) {
+            listDelNode(c->reply, listFirst(c->reply));
+            continue;
+        }
+
+        nwritten = write(fd, (char *) o + c->sentlen, objlen - c->sentlen);
+        if (nwritten <= 0) break;
+
+        c->sentlen += nwritten;
+        totwritten += nwritten;
+        /* If we fully sent the object on head go to the next one */
+        if (c->sentlen == objlen) {
+            listDelNode(c->reply, listFirst(c->reply));
+            c->sentlen = 0;
+        }
+        /* Note that we avoid to send more thank REDIS_MAX_WRITE_PER_EVENT
+         * bytes, in a single threaded server it's a good idea to serve
+         * other clients as well, even if a very large request comes from
+         * super fast link that is always able to accept data (in real world
+         * scenario think about 'KEYS *' against the loopback interfae) */
+        if (totwritten > REDIS_MAX_WRITE_PER_EVENT) break;
+    }
+    if (nwritten == -1) {
+        if (errno == EAGAIN) {
+            nwritten = 0;
+        } else {
+            redisLog(REDIS_VERBOSE,
+                "Error writing to client: %s", strerror(errno));
+            freeClient(c);
+            return;
+        }
+    }
+    if (totwritten > 0) c->lastinteraction = time(NULL);
+    if (listLength(c->reply) == 0) {
+        c->sentlen = 0;
+        aeDeleteFileEvent(server.el, c->fd, AE_WRITABLE);
+    }
+}
+
+static struct redisCommand *lookupCommand(char *name) {
+    int j = 0;
+    while (cmdTable[j].name != NULL) {
+        if (!strcasecmp(name, cmdTable[j].name)) return &cmdTable[j];
+        j++;
+    }
+    return NULL;
+}
+
+/* resetClient prepare the client to process the next command */
+static void resetClient(redisClient *c) {
+    freeClientArgv(c);
+    c->bulklen = -1;
+}
+
+/* Call() is the core of Redis execution of a command */
+static void call(redisClient *c, struct redisCommand *cmd) {
+    cmd->proc(c);
+    server.stat_numcommands++;
+}
+
+/* If this function gets called we already read a whole
+ * command, argments are in the client argv/argc fields.
+ * processCommand() execute the command or prepare the
+ * server for a bulk read from the client.
+ *
+ * If 1 is returned the client is still alive and valid and
+ * and other operations can be performed by the caller. Otherwise
+ * if 0 is returned the client was destroied (i.e. after QUIT). */
+static int processCommand(redisClient *c) {
+    struct redisCommand *cmd;
+
+    /* The QUIT command is handled as a special case. Normal command
+     * procs are unable to close the client connection safely */
+    if (!strcasecmp(c->argv[0], "quit")) {
+        freeClient(c);
+        return 0;
+    }
+
+    /* Now lookup the command and check ASAP about trivial error conditions
+     * such wrong arity, bad command name and so forth. */
+    cmd = lookupCommand(c->argv[0]);
+    if (!cmd) {
+        addReplySds(c,
+            sdscatprintf(sdsempty(), "-ERR unknown command '%s'\r\n",
+                (char *) c->argv[0]));
+        resetClient(c);
+        return 1;
+    }
+
+    call(c, cmd);
+
+    /* Prepare the client for the next command */
+    resetClient(c);
+    return 1;
+}
+
+static void processInputBuffer(redisClient *c) {
+again:
+    if (c->bulklen == -1) {
+        /* Read the first line of the query */
+        char *p = strchr(c->querybuf, '\n');
+        size_t querylen;
+
+        if (p) {
+            sds query, *argv;
+            int argc, j;
+
+            query = c->querybuf;
+            c->querybuf = sdsempty();
+            querylen = 1 + (p - query);
+            if (sdslen(query) > querylen) {
+                /* leave data after the first line of the query in the buffer */
+                c->querybuf = sdscatlen(c->querybuf, query + querylen, sdslen(query) - querylen);
+            }
+            *p = '\0'; /* remove "\n" */
+            if (*(p - 1) == '\r') *(p - 1) = '\0'; /* and "\r" if any */
+            sdsupdatelen(query);
+
+            /* Now we can split the query in arguments */
+            argv = sdssplitlen(query, sdslen(query), " ", 1, &argc);
+            sdsfree(query);
+
+            if (c->argv) zfree(c->argv);
+            c->argv = zmalloc(sizeof(sds) * argc);
+
+            for (j = 0; j < argc; j++) {
+                if (sdslen(argv[j])) {
+                    c->argv[c->argc] = argv[j];
+                    c->argc++;
+                } else {
+                    sdsfree(argv[j]);
+                }
+            }
+            zfree(argv);
+            if (c->argc) {
+                /* Execute the command. If the client is still valid
+                 * after processCommand() return and there is something
+                 * on the query buffer try to process the next command. */
+                if (processCommand(c) && sdslen(c->querybuf)) goto again;
+            } else {
+                /* Nothing to process, argc == 0. Just process the query
+                 * buffer if it's not empty or return to the caller */
+                if (sdslen(c->querybuf)) goto again;
+            }
+            return;
+        }
+    }
 }
 
 static void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
@@ -306,7 +499,7 @@ static void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mas
         return;
     }
 
-    printf("%s\n", c->querybuf);
+    processInputBuffer(c);
 }
 
 static redisClient *createClient(int fd) {
@@ -318,11 +511,14 @@ static redisClient *createClient(int fd) {
     c->fd = fd;
     c->querybuf = sdsempty();
     c->argc = 0;
-    // c->argv = NULL;
+    c->argv = NULL;
     c->bulklen = -1;
     c->sentlen = 0;
     c->flags = 0;
     c->lastinteraction = time(NULL);
+    c->reply = listCreate();
+    listSetFreeMethod(c->reply, sdsfree);
+    listSetDupMethod(c->reply, sdsdup);
     if (aeCreateFileEvent(server.el, c->fd, AE_READABLE,
         readQueryFromClient, c) == AE_ERR) {
         freeClient(c);
@@ -330,6 +526,13 @@ static redisClient *createClient(int fd) {
     }
     listAddNodeTail(server.clients, c);
     return c;
+}
+
+static void addReplySds(redisClient *c, sds s) {
+    if (listLength(c->reply) == 0 &&
+        aeCreateFileEvent(server.el, c->fd, AE_WRITABLE,
+        sendReplyToClient, c) == AE_ERR) return;
+    listAddNodeTail(c->reply, s);
 }
 
 static void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
@@ -366,6 +569,10 @@ static void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
         return;
     }
     server.stat_numconnections++;
+}
+
+static void pingCommand(redisClient *c) {
+    addReplySds(c, sdsnew("+PONG\r\n"));
 }
 
 static void _redisAssert(char *estr, char *file, int line) {
