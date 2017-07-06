@@ -96,19 +96,26 @@
 #define REDIS_REQUEST_MAX_SIZE (1024*1024*256) /* max bytes in inline command */
 
 /* Command flags */
-#define REDIS_CMD_BULK          1       /* Bulk write command */
-#define REDIS_CMD_INLINE        2       /* Inline command */
+#define REDIS_CMD_BULK      1   /* Bulk write command */
+#define REDIS_CMD_INLINE    2   /* Inline command */
 /* REDIS_CMD_DENYOOM reserves a longer comment: all the commands marked with
    this flags will return an error when the 'maxmemory' option is set in the
    config file and the server is using more than maxmemory bytes of memory.
    In short this commands are denied on low memory conditions. */
-#define REDIS_CMD_DENYOOM       4
+#define REDIS_CMD_DENYOOM   4
+
+/* Object types */
+#define REDIS_STRING    0
+#define REDIS_LIST      1
+#define REDIS_SET       2
+#define REDIS_ZSET      3
+#define REDIS_HASH      4
 
 /* Log levels */
-#define REDIS_DEBUG 0
-#define REDIS_VERBOSE 1
-#define REDIS_NOTICE 2
-#define REDIS_WARNING 3
+#define REDIS_DEBUG     0
+#define REDIS_VERBOSE   1
+#define REDIS_NOTICE    2
+#define REDIS_WARNING   3
 
 /* Anti-warning macro... */
 #define REDIS_NOTUSED(V) ((void) V)
@@ -119,12 +126,19 @@ static void _redisAssert(char *estr, char *file, int line);
 
 /*================================= Data types ============================== */
 
+/* The actual Redis Object */
+typedef struct redisObject {
+    void *ptr;
+    unsigned char type;
+    int refcount;
+} robj;
+
 /* With multiplexing we need to take per-clinet state.
  * Clients are taken in a liked list. */
 typedef struct redisClient {
     int fd;
     sds querybuf;
-    sds *argv;
+    robj **argv;
     int argc;
     int bulklen;            /* bulk read len. -1 if not in bulk read mode */
     list *reply;
@@ -163,12 +177,35 @@ struct redisCommand {
     int flags;
 };
 
+/* Our shared "common" objects */
+
+struct sharedObjectsStruct {
+    robj *crlf, *ok, *err, *emptybulk, *czero, *cone, *pong, *space,
+    *colon, *nullbulk, *nullmultibulk, *queued,
+    *emptymultibulk, *wrongtypeerr, *nokeyerr, *syntaxerr, *sameobjecterr,
+    *outofrangeerr, *plus,
+    *select0, *select1, *select2, *select3, *select4,
+    *select5, *select6, *select7, *select8, *select9;
+} shared;
+
 /*================================ Prototypes =============================== */
 
+static void freeStringObject(robj *o);
+static void decrRefCount(void *o);
+static robj *createObject(int type, void *ptr);
 static void freeClient(redisClient *c);
+static void addReply(redisClient *c, robj *obj);
 static void addReplySds(redisClient *c, sds s);
+static void incrRefCount(robj *o);
+static robj *createStringObject(char *ptr, size_t len);
+static robj *getDecodedObject(robj *o);
+static int processCommand(redisClient *c);
+static void processInputBuffer(redisClient *c);
 static void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask);
 static void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask);
+static struct redisCommand *lookupCommand(char *name);
+static void call(redisClient *c, struct redisCommand *cmd);
+static void resetClient(redisClient *c);
 
 static void pingCommand(redisClient *c);
 
@@ -250,6 +287,43 @@ static void beforeSleep(struct aeEventLoop *eventLoop) {
     REDIS_NOTUSED(eventLoop);
 }
 
+static void createSharedObjects(void) {
+    shared.crlf = createObject(REDIS_STRING, sdsnew("\r\n"));
+    shared.ok = createObject(REDIS_STRING, sdsnew("+OK\r\n"));
+    shared.err = createObject(REDIS_STRING, sdsnew("-ERR\r\n"));
+    shared.emptybulk = createObject(REDIS_STRING, sdsnew("$0\r\n\r\n"));
+    shared.czero = createObject(REDIS_STRING, sdsnew(":0\r\n"));
+    shared.cone = createObject(REDIS_STRING, sdsnew(":1\r\n"));
+    shared.nullbulk = createObject(REDIS_STRING, sdsnew("$-1\r\n"));
+    shared.nullmultibulk = createObject(REDIS_STRING, sdsnew("*-1\r\n"));
+    shared.emptymultibulk = createObject(REDIS_STRING, sdsnew("*0\r\n"));
+    shared.pong = createObject(REDIS_STRING, sdsnew("+PONG\r\n"));
+    shared.queued = createObject(REDIS_STRING, sdsnew("+QUEUED\r\n"));
+    shared.wrongtypeerr = createObject(REDIS_STRING, sdsnew(
+        "-ERR Operation against a key holding the wrong kind of value\r\n"));
+    shared.nokeyerr = createObject(REDIS_STRING, sdsnew(
+        "-ERR no such key\r\n"));
+    shared.syntaxerr = createObject(REDIS_STRING, sdsnew(
+        "-ERR syntax error\r\n"));
+    shared.sameobjecterr = createObject(REDIS_STRING, sdsnew(
+        "-ERR source and destination objects are the same\r\n"));
+    shared.outofrangeerr = createObject(REDIS_STRING, sdsnew(
+        "-ERR index out of range\r\n"));
+    shared.space = createObject(REDIS_STRING, sdsnew(" "));
+    shared.colon = createObject(REDIS_STRING, sdsnew(":"));
+    shared.plus = createObject(REDIS_STRING, sdsnew("+"));
+    shared.select0 = createStringObject("select 0\r\n", 10);
+    shared.select1 = createStringObject("select 1\r\n", 10);
+    shared.select2 = createStringObject("select 2\r\n", 10);
+    shared.select3 = createStringObject("select 3\r\n", 10);
+    shared.select4 = createStringObject("select 4\r\n", 10);
+    shared.select5 = createStringObject("select 5\r\n", 10);
+    shared.select6 = createStringObject("select 6\r\n", 10);
+    shared.select7 = createStringObject("select 7\r\n", 10);
+    shared.select8 = createStringObject("select 8\r\n", 10);
+    shared.select9 = createStringObject("select 9\r\n", 10);
+}
+
 static void initServerConfig() {
     server.port = REDIS_SERVERPORT;
     server.verbosity = REDIS_VERBOSE;
@@ -265,6 +339,7 @@ static void initServer() {
     signal(SIGPIPE, SIG_IGN);
 
     server.clients = listCreate();
+    createSharedObjects();
     server.el = aeCreateEventLoop();
     server.fd = anetTcpServer(server.neterr, server.port, server.bindaddr);
     if (server.fd == -1) {
@@ -282,7 +357,7 @@ static void freeClientArgv(redisClient *c) {
     int j;
 
     for (j = 0; j < c->argc; j++)
-        sdsfree(c->argv[j]);
+        decrRefCount(c->argv[j]);
 
     c->argc = 0;
 }
@@ -314,20 +389,20 @@ static void freeClient(redisClient *c) {
 static void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     redisClient *c = (redisClient *) privdata;
     int nwritten = 0, totwritten = 0, objlen;
-    sds o;
+    robj *o;
     REDIS_NOTUSED(el);
     REDIS_NOTUSED(mask);
 
     while (listLength(c->reply)) {
         o = listNodeValue(listFirst(c->reply));
-        objlen = sdslen(o);
+        objlen = sdslen(o->ptr);
 
         if (objlen == 0) {
             listDelNode(c->reply, listFirst(c->reply));
             continue;
         }
 
-        nwritten = write(fd, (char *) o + c->sentlen, objlen - c->sentlen);
+        nwritten = write(fd, (char *) o->ptr + c->sentlen, objlen - c->sentlen);
         if (nwritten <= 0) break;
 
         c->sentlen += nwritten;
@@ -395,18 +470,18 @@ static int processCommand(redisClient *c) {
 
     /* The QUIT command is handled as a special case. Normal command
      * procs are unable to close the client connection safely */
-    if (!strcasecmp(c->argv[0], "quit")) {
+    if (!strcasecmp(c->argv[0]->ptr, "quit")) {
         freeClient(c);
         return 0;
     }
 
     /* Now lookup the command and check ASAP about trivial error conditions
      * such wrong arity, bad command name and so forth. */
-    cmd = lookupCommand(c->argv[0]);
+    cmd = lookupCommand(c->argv[0]->ptr);
     if (!cmd) {
         addReplySds(c,
             sdscatprintf(sdsempty(), "-ERR unknown command '%s'\r\n",
-                (char *) c->argv[0]));
+                (char *) c->argv[0]->ptr));
         resetClient(c);
         return 1;
     }
@@ -445,11 +520,11 @@ again:
             sdsfree(query);
 
             if (c->argv) zfree(c->argv);
-            c->argv = zmalloc(sizeof(sds) * argc);
+            c->argv = zmalloc(sizeof(robj *) * argc);
 
             for (j = 0; j < argc; j++) {
                 if (sdslen(argv[j])) {
-                    c->argv[c->argc] = argv[j];
+                    c->argv[c->argc] = createObject(REDIS_STRING, argv[j]);
                     c->argc++;
                 } else {
                     sdsfree(argv[j]);
@@ -502,6 +577,11 @@ static void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mas
     processInputBuffer(c);
 }
 
+static void *dupClientReplyValue(void *o) {
+    incrRefCount((robj *) o);
+    return o;
+}
+
 static redisClient *createClient(int fd) {
     redisClient *c = zmalloc(sizeof(*c));
 
@@ -517,8 +597,8 @@ static redisClient *createClient(int fd) {
     c->flags = 0;
     c->lastinteraction = time(NULL);
     c->reply = listCreate();
-    listSetFreeMethod(c->reply, sdsfree);
-    listSetDupMethod(c->reply, sdsdup);
+    listSetFreeMethod(c->reply, decrRefCount);
+    listSetDupMethod(c->reply, dupClientReplyValue);
     if (aeCreateFileEvent(server.el, c->fd, AE_READABLE,
         readQueryFromClient, c) == AE_ERR) {
         freeClient(c);
@@ -528,11 +608,17 @@ static redisClient *createClient(int fd) {
     return c;
 }
 
-static void addReplySds(redisClient *c, sds s) {
+static void addReply(redisClient *c, robj *obj) {
     if (listLength(c->reply) == 0 &&
         aeCreateFileEvent(server.el, c->fd, AE_WRITABLE,
         sendReplyToClient, c) == AE_ERR) return;
-    listAddNodeTail(c->reply, s);
+    listAddNodeTail(c->reply, getDecodedObject(obj));
+}
+
+static void addReplySds(redisClient *c, sds s) {
+    robj *o = createObject(REDIS_STRING, s);
+    addReply(c, o);
+    decrRefCount(o);
 }
 
 static void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
@@ -571,8 +657,49 @@ static void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
     server.stat_numconnections++;
 }
 
+/* ======================= Redis objects implementation ===================== */
+
+static robj *createObject(int type, void *ptr) {
+    robj *o = zmalloc(sizeof(*o));
+    o->type = type;
+    o->ptr = ptr;
+    o->refcount = 1;
+    return o;
+}
+
+static robj *createStringObject(char *ptr, size_t len) {
+    return createObject(REDIS_STRING, sdsnewlen(ptr, len));
+}
+
+static void freeStringObject(robj *o) {
+    sdsfree(o->ptr);
+}
+
+static void incrRefCount(robj *o) {
+    o->refcount++;
+}
+
+static void decrRefCount(void *obj) {
+    robj *o = obj;
+
+    if (--(o->refcount) == 0) {
+        switch (o->type) {
+        case REDIS_STRING: freeStringObject(o); break;
+        default: redisAssert(0); break;
+        }
+        zfree(o);
+    }
+}
+
+/* Get a decoded version of an encoded object (returned as a new object).
+ * If the object is already raw-encoded just increment the ref count. */
+static robj *getDecodedObject(robj *o) {
+    incrRefCount(o);
+    return o;
+}
+
 static void pingCommand(redisClient *c) {
-    // addReplySds(c, sdsnew("+PONG\r\n"));
+    addReply(c, shared.pong);
 }
 
 static void _redisAssert(char *estr, char *file, int line) {
