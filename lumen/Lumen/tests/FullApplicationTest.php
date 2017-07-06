@@ -82,4 +82,19 @@ class FullApplicationTest extends PHPUnit_Framework_TestCase
         $this->assertEquals(200, $response->getStatusCode());
         $this->assertEquals('something', $response->getContent());
     }
+
+    public function testNotFoundResponse()
+    {
+        $app = new Application;
+        // $app->instance('Illuminate\Contracts\Debug\ExceptionHandler', $mock = m::mock('Laravel\Lumen\Exceptions\Handler[report]'));
+        // $mock->shouldIgnoreMissing();
+
+        $app->get('/', function () {
+            return response('Hello World');
+        });
+
+        $response = $app->handle(Request::create('/foo', 'GET'));
+
+        $this->assertEquals(404, $response->getStatusCode());
+    }
 }

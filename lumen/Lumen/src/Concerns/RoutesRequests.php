@@ -3,8 +3,12 @@
 namespace Lumen\Concerns;
 
 use Closure;
+use Exception;
+use Throwable;
 use FastRoute\Dispatcher;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
 trait RoutesRequests
 {
@@ -14,6 +18,25 @@ trait RoutesRequests
      * @var array
      */
     private $routes = [];
+
+    /**
+     * Send the exception to the handler and return the response.
+     *
+     * @param  \Throwable  $e
+     * @return Response
+     */
+    protected function sendExceptionToHandler($e)
+    {
+        $handler = $this->resolveExceptionHandler();
+
+        if ($e instanceof Error) {
+            $e = new FatalThrowableError($e);
+        }
+
+        $handler->report($e);
+
+        return $handler->render($this->make('request'), $e);
+    }
 
     /**
      * Register a route with the application.
@@ -82,13 +105,20 @@ trait RoutesRequests
     {
         list($method, $pathInfo) = $this->parseIncomingRequest($request);
 
-        if (isset($this->routes[$method.$pathInfo])) {
-            return $this->handleFoundRoute([true, $this->routes[$method.$pathInfo]['action'], []]);
-        }
+        try {
+            if (isset($this->routes[$method.$pathInfo])) {
+                return $this->handleFoundRoute([true, $this->routes[$method.$pathInfo]['action'], []]);
+            }
 
-        return $this->handleDispatcherResponse(
-            $this->createDispatcher()->dispatch($method, $pathInfo)
-        );
+            return $this->handleDispatcherResponse(
+                $this->createDispatcher()->dispatch($method, $pathInfo)
+            );
+        } catch (Exception $e) {
+
+        } catch (Throwable $e) {
+            
+        }
+        
     }
 
     /**
