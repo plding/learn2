@@ -312,7 +312,7 @@ static void freeClient(redisClient *c) {
 }
 
 static void sendReplyToClient(aeEventLoop *el, int fd, void *privdata, int mask) {
-    redisClient *c = privdata;
+    redisClient *c = (redisClient *) privdata;
     int nwritten = 0, totwritten = 0, objlen;
     sds o;
     REDIS_NOTUSED(el);
@@ -572,7 +572,7 @@ static void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
 }
 
 static void pingCommand(redisClient *c) {
-    addReplySds(c, sdsnew("+PONG\r\n"));
+    // addReplySds(c, sdsnew("+PONG\r\n"));
 }
 
 static void _redisAssert(char *estr, char *file, int line) {
