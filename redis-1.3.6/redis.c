@@ -207,6 +207,7 @@ static struct redisCommand *lookupCommand(char *name);
 static void call(redisClient *c, struct redisCommand *cmd);
 static void resetClient(redisClient *c);
 
+static void echoCommand(redisClient *c);
 static void pingCommand(redisClient *c);
 
 /*================================= Globals ================================= */
@@ -215,6 +216,7 @@ static void pingCommand(redisClient *c);
 static struct redisServer server; /* server global state */
 static struct redisCommand cmdTable[] = {
     {"ping", pingCommand, 1, REDIS_CMD_INLINE},
+    {"echo", echoCommand, 2, REDIS_CMD_BULK},
     {NULL, NULL, 0, 0}
 };
 
@@ -484,6 +486,14 @@ static int processCommand(redisClient *c) {
                 (char *) c->argv[0]->ptr));
         resetClient(c);
         return 1;
+    } else if ((cmd->arity > 0 && cmd->arity != c->argc) ||
+               (c->argc < -cmd->arity)) {
+        addReplySds(c,
+            sdscatprintf(sdsempty(),
+                "-ERR wrong number of arguments for '%s' command\r\n",
+                cmd->name));
+        resetClient(c);
+        return 1;
     }
 
     call(c, cmd);
@@ -621,6 +631,17 @@ static void addReplySds(redisClient *c, sds s) {
     decrRefCount(o);
 }
 
+static void addReplyBulkLen(redisClient *c, robj *obj) {
+    size_t len = sdslen(obj->ptr);
+    addReplySds(c, sdscatprintf(sdsempty(), "$%lu\r\n", (unsigned long) len));
+}
+
+static void addReplyBulk(redisClient *c, robj *obj) {
+    addReplyBulkLen(c, obj);
+    addReply(c, obj);
+    addReply(c, shared.crlf);
+}
+
 static void acceptHandler(aeEventLoop *el, int fd, void *privdata, int mask) {
     int cport, cfd;
     char cip[128];
@@ -698,8 +719,14 @@ static robj *getDecodedObject(robj *o) {
     return o;
 }
 
+/*================================== Commands =============================== */
+
 static void pingCommand(redisClient *c) {
     addReply(c, shared.pong);
+}
+
+static void echoCommand(redisClient *c) {
+    addReplyBulk(c, c->argv[1]);
 }
 
 static void _redisAssert(char *estr, char *file, int line) {
