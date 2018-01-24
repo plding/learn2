@@ -1,0 +1,18 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.hadoopbook.plding</groupId>
+  <artifactId>book</artifactId>
+  <packaging>pom</packaging>
+  <version>4.0</version>
+  <name>Hadoop: The Definitive Guide, Project</name>
+
+  <properties>
+    <property.build.sourceEncoding>UTF-8</property.build.sourceEncoding>
+    <property.reporting.outputEncoding>UTF-8</property.reporting.outputEncoding>
+  
+    <!-- Component versions are defined here -->
+    <hadoop.version>2.5.2</hadoop.version>
+  </properties>
+
+</project>
