@@ -8,18 +8,8 @@
     <relativePath>../hadoop-meta/pom.xml</relativePath>
   </parent>
   <groupId>com.hadoopbook.plding</groupId>
-  <artifactId>ch03</artifactId>
+  <artifactId>ch04</artifactId>
   <packaging>jar</packaging>
   <version>3.0</version>
-  <name>Chapter 3: The Hadoop Distributed Filesystem</name>
-  <dependencies>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.hamcrest</groupId>
-      <artifactId>hamcrest-all</artifactId>
-    </dependency>
-  </dependencies>
+  <name>Chapter 4: Hadoop I/O</name>
 </project>
