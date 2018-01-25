@@ -1,17 +1,15 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.hadoopbook.plding</groupId>
+    <artifactId>hadoop-meta</artifactId>
+    <version>3.0</version>
+    <relativePath>../hadoop-meta/pom.xml</relativePath>
+  </parent>
   <groupId>com.hadoopbook.plding</groupId>
-  <artifactId>root</artifactId>
-  <packaging>pom</packaging>
+  <artifactId>ch05</artifactId>
+  <packaging>jar</packaging>
   <version>3.0</version>
-  <name>Hadoop: The Definitive Guide, Example Code</name>
-
-  <modules>
-    <module>book</module>
-    <module>ch02</module>
-    <module>ch03</module>
-    <module>ch04</module>
-    <module>ch05</module>
-  </modules>
+  <name>Chapter 5: Developing a MapReduce Application</name>
 </project>
