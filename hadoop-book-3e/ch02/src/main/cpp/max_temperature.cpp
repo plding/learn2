@@ -1,9 +1,9 @@
 #include <algorithm>
-#include <limits>
+#include <climits>
 #include <cstdint>
 #include <string>
 
-#include "hadoop/Pipe.hh"
+#include "hadoop/Pipes.hh"
 #include "hadoop/TemplateFactory.hh"
 #include "hadoop/StringUtils.hh"
 
