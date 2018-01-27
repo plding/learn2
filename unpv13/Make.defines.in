@@ -39,5 +39,5 @@ LIBROUTE_OBJS = @LIBROUTE_OBJS@
 LIBXTI_OBJS = @LIBXTI_OBJS@
 
 CLEANFILES = core core.* *.core *.o temp.* *.out typescript* \
-		*.lc *.lh *.bsdi *.sparc *.uw
+		*.lc *.lh *.bsdi *.sparc *.uw ${LIBUNP_NAME}
 
