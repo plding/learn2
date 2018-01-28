@@ -4,7 +4,7 @@ import java.net.URL;
 import org.apache.hadoop.fs.FsUrlStreamHandlerFactory;
 import org.apache.hadoop.io.IOUtils;
 
-public class URLCat2 {
+public class URLCat {
 
     static {
         URL.setURLStreamHandlerFactory(new FsUrlStreamHandlerFactory());
