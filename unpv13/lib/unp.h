@@ -37,6 +37,13 @@
 /* Following shortens all the typecasts of pointer arguments: */
 #define SA  struct sockaddr
 
+/* prototypes for our own library functions */
+char    *sock_ntop(const SA *, socklen_t);
+
+/* prototypes for our own library wrapper functions */
+const char      *Inet_ntop(int, const void *, char *, size_t);
+char    *Sock_ntop(const SA *, socklen_t);
+
 /* prototypes for our Unix wrapper functions: see {Sec errors} */
 void     Close(int);
 void     Write(int, void *, size_t);
@@ -44,6 +51,7 @@ void     Write(int, void *, size_t);
 /* prototypes for our socket wrapper functions: see {Sec errors} */
 int      Accept(int, SA *, socklen_t *);
 void     Bind(int, const SA *, socklen_t);
+void     Getsockname(int, SA *, socklen_t *);
 void     Listen(int, int);
 int      Socket(int, int, int);
 
