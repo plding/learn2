@@ -1,0 +1,48 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.hadoopbook.plding</groupId>
+    <artifactId>book</artifactId>
+    <version>dev</version>
+    <relativePath>../book/pom.xml</relativePath>
+  </parent>
+  <groupId>com.hadoopbook.plding</groupId>
+  <artifactId>hadoop-meta</artifactId>
+  <packaging>pom</packaging>
+  <version>dev</version>
+  <name>Hadoop dependencies</name>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-core</artifactId>
+      <version>1.2.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.10</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-all</artifactId>
+      <version>1.1</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.mrunit</groupId>
+      <artifactId>mrunit</artifactId>
+      <version>0.8.1-incubating</version>
+      <classifier>hadoop100</classifier>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+</project>

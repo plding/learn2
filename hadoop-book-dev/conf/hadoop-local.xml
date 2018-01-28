@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<properties>
+  <property>
+    <name>fs.default.name</name>
+    <value>file:///</value>
+  </property>
+  <property>
+    <name>mapreduce.job.tracker</name>
+    <value>local</value>
+  </property>
+</properties>
