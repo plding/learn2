@@ -1,15 +1,15 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.hadoopbook.plding</groupId>
+    <artifactId>hadoop-meta</artifactId>
+    <version>4.0</version>
+    <relativePath>../hadoop-meta/pom.xml</relativePath>
+  </parent>
   <groupId>com.hadoopbook.plding</groupId>
-  <artifactId>root</artifactId>
-  <packaging>pom</packaging>
+  <artifactId>ch03-hdfs</artifactId>
+  <packaging>jar</packaging>
   <version>4.0</version>
-  <name>Hadoop: The Definitive Guide, Example Code</name>
-
-  <modules>
-    <module>book</module>
-    <module>ch02-mr-intro</module>
-    <module>ch03-hdfs</module>
-  </modules>
+  <name>Chapter 3: The Hadoop Distributed Filesystem</name>
 </project>
