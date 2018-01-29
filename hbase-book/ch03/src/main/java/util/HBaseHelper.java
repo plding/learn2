@@ -1,12 +1,13 @@
 package util;
 
+import java.io.IOException;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 
-import java.io.IOException;
-
+@SuppressWarnings("deprecation")
 public class HBaseHelper {
 
     private Configuration conf = null;
@@ -21,13 +22,11 @@ public class HBaseHelper {
         return new HBaseHelper(conf);
     }
 
-    public boolean existsTable(String table)
-    throws IOException {
+    public boolean existsTable(String table) throws IOException {
         return admin.tableExists(table);
     }
 
-    public void createTable(String table, String... colfams)
-    throws IOException {
+    public void createTable(String table, String... colfams) throws IOException {
         createTable(table, null, colfams);
     }
 
