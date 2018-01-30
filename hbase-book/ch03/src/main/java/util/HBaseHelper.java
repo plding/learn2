@@ -6,6 +6,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.util.Bytes;
 
 @SuppressWarnings("deprecation")
 public class HBaseHelper {
@@ -53,5 +56,25 @@ public class HBaseHelper {
             disableTable(table);
             admin.deleteTable(table);
         }
+    }
+
+    public void put(String table, String[] rows, String[] fams, String[] quals,
+                    long[] ts, String[] vals) throws IOException {
+        HTable tbl = new HTable(conf, table);
+        for (String row : rows) {
+            Put put = new Put(Bytes.toBytes(row));
+            for (String fam : fams) {
+                int v = 0;
+                for (String qual : quals) {
+                    String val = vals[v < vals.length ? v : vals.length - 1];
+                    long t = ts[v < ts.length ? v : ts.length - 1];
+                    put.add(Bytes.toBytes(fam), Bytes.toBytes(qual), t,
+                        Bytes.toBytes(val));
+                    v++;
+                }
+            }
+            tbl.put(put);
+        }
+        tbl.close();
     }
 }
