@@ -13,6 +13,7 @@
   
     <!-- Component versions are defined here -->
     <hadoop.version>1.2.1</hadoop.version>
+    <zookeeper.version>3.4.11</zookeeper.version>
   </properties>
 
   <build>
