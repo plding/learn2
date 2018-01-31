@@ -1,13 +1,18 @@
 package util;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.util.Bytes;
 
 @SuppressWarnings("deprecation")
@@ -76,5 +81,32 @@ public class HBaseHelper {
             tbl.put(put);
         }
         tbl.close();
+    }
+
+    public void dump(String table, String[] rows, String[] fams, String[] quals)
+    throws IOException {
+        HTable tbl = new HTable(conf, table);
+        
+        List<Get> gets = new ArrayList<Get>();
+        for (String row : rows) {
+            Get get = new Get(Bytes.toBytes(row));
+            get.setMaxVersions();
+            if (fams != null) {
+                for (String fam : fams) {
+                    for (String qual : quals) {
+                        get.addColumn(Bytes.toBytes(fam), Bytes.toBytes(qual));
+                    }
+                }
+            }
+            gets.add(get);
+        }
+
+        Result[] results = tbl.get(gets);
+        for (Result result : results) {
+            for (KeyValue kv : result.raw()) {
+                System.out.println("KV: " + kv +
+                    ", Value: " + Bytes.toString(kv.getValue()));
+            }
+        }
     }
 }

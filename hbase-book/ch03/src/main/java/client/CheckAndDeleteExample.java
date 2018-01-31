@@ -9,7 +9,7 @@ import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.util.Bytes;
 import util.HBaseHelper;
 
-public class DeleteExample {
+public class CheckAndDeleteExample {
 
     @SuppressWarnings("deprecation")
     public static void main(String[] args) throws IOException {
@@ -30,22 +30,32 @@ public class DeleteExample {
 
         HTable table = new HTable(conf, "testtable");
 
-        Delete delete = new Delete(Bytes.toBytes("row1"));
+        Delete delete1 = new Delete(Bytes.toBytes("row1"));
+        delete1.deleteColumns(Bytes.toBytes("colfam1"), Bytes.toBytes("qual3"));
 
-        delete.setTimestamp(1);
+        boolean res1 = table.checkAndDelete(Bytes.toBytes("row1"),
+            Bytes.toBytes("colfam2"), Bytes.toBytes("qual3"), null, delete1);
+        System.out.println("Delete successful: " + res1);
 
-        delete.deleteColumn(Bytes.toBytes("colfam1"), Bytes.toBytes("qual1"));
-        delete.deleteColumn(Bytes.toBytes("colfam1"), Bytes.toBytes("qual3"), 5);
+        Delete delete2 = new Delete(Bytes.toBytes("row1"));
+        delete2.deleteColumns(Bytes.toBytes("colfam2"), Bytes.toBytes("qual3"));
+        table.delete(delete2);
 
-        delete.deleteColumns(Bytes.toBytes("colfam1"), Bytes.toBytes("qual1"));
-        delete.deleteColumns(Bytes.toBytes("colfam1"), Bytes.toBytes("qual3"), 6);
+        boolean res2 = table.checkAndDelete(Bytes.toBytes("row1"),
+            Bytes.toBytes("colfam2"), Bytes.toBytes("qual3"), null, delete1);
+        System.out.println("Delete successful: " + res2);
 
-        delete.deleteFamily(Bytes.toBytes("colfam1"));
-        delete.deleteFamily(Bytes.toBytes("colfam1"), 3);
-        
-        table.delete(delete);
+        Delete delete3 = new Delete(Bytes.toBytes("row2"));
+        delete3.deleteFamily(Bytes.toBytes("colfam1"));
 
-        table.close();
+        try {
+            boolean res4 = table.checkAndDelete(Bytes.toBytes("row1"),
+                Bytes.toBytes("colfam1"), Bytes.toBytes("qual1"),
+                Bytes.toBytes("val1"), delete3);
+            System.out.println("Delete successful: " + res4);
+        } catch (Exception e) {
+            System.err.println("Error: " + e);
+        }
 
         System.out.println("After delete call...");
         helper.dump("testtable", new String[] { "row1" }, null, null);
