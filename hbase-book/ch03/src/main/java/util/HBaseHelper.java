@@ -3,6 +3,7 @@ package util;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
@@ -61,6 +62,59 @@ public class HBaseHelper {
             disableTable(table);
             admin.deleteTable(table);
         }
+    }
+
+    public void fillTable(String table, int startRow, int endRow, int numCols,
+                          String... colfams) throws IOException {
+        fillTable(table, startRow, endRow, numCols, -1, false, colfams);
+    }
+
+    public void fillTable(String table, int startRow, int endRow, int numCols,
+                          boolean setTimestamp, String... colfams) throws IOException {
+        fillTable(table, startRow, endRow, numCols, -1, setTimestamp, colfams);
+    }
+
+    public void fillTable(String table, int startRow, int endRow, int numCols,
+                          int pad, boolean setTimestamp, String... colfams)
+    throws IOException {
+        fillTable(table, startRow, endRow, numCols, pad, setTimestamp, false, colfams);
+    }
+
+    public void fillTable(String table, int startRow, int endRow, int numCols,
+                          int pad, boolean setTimestamp, boolean random,
+                          String... colfams) throws IOException {
+        HTable tbl = new HTable(conf, table);
+        Random rnd = new Random();
+        for (int row = startRow; row <= endRow; row++) {
+            for (int col = 0; col < numCols; col++) {
+                Put put = new Put(Bytes.toBytes("row-" + padNum(row, pad)));
+                for (String cf : colfams) {
+                    String colName = "col-" + padNum(col, pad);
+                    String val = "val-" + (random ?
+                        Integer.toString(rnd.nextInt(numCols)) :
+                        padNum(row, pad) + "." + padNum(col, pad));
+                    if (setTimestamp) {
+                        put.add(Bytes.toBytes(cf), Bytes.toBytes(colName),
+                            col, Bytes.toBytes(val));
+                    } else {
+                        put.add(Bytes.toBytes(cf), Bytes.toBytes(colName),
+                            Bytes.toBytes(val));
+                    }
+                }
+                tbl.put(put);
+            }
+        }
+        tbl.close();
+    }
+
+    public String padNum(int num, int pad) {
+        String res = Integer.toString(num);
+        if (pad > 0) {
+            while (res.length() < pad) {
+                res = "0" + res;
+            }
+        }
+        return res;
     }
 
     public void put(String table, String[] rows, String[] fams, String[] quals,
