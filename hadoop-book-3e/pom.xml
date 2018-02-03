@@ -16,5 +16,6 @@
     <module>ch05</module>
     <module>ch07</module>
     <module>ch14</module>
+    <module>test</module>
   </modules>
 </project>
