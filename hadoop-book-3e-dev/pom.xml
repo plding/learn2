@@ -10,6 +10,5 @@
   <modules>
     <module>book</module>
     <module>ch02</module>
-    <module>ch03</module>
   </modules>
 </project>
